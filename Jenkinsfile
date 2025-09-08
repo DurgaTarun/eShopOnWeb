@@ -26,7 +26,7 @@ pipeline {
             script: "aws sts get-caller-identity --query Account --output text",
             returnStdout: true
           ).trim()
-          env.ECR_URI = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.REPO_NAME}"
+          env.ECR_URI = "108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb"
           env.GIT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         }
       }
@@ -35,8 +35,7 @@ pipeline {
     stage('ECR Login') {
       steps {
         sh '''
-          aws ecr get-login-password --region "$AWS_REGION" \
-          | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 108758164602.dkr.ecr.us-east-1.amazonaws.com"
         '''
       }
     }
@@ -44,9 +43,8 @@ pipeline {
     stage('Build Image') {
       steps {
         sh '''
-          docker build -t "$REPO_NAME:$GIT_SHA" -t "$REPO_NAME:latest" .
-          docker tag "$REPO_NAME:$GIT_SHA" "$ECR_URI:$GIT_SHA"
-          docker tag "$REPO_NAME:latest"   "$ECR_URI:latest"
+          docker build -t eshoponweb .
+          docker tag eshoponweb:latest 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
         '''
       }
     }
@@ -54,8 +52,7 @@ pipeline {
     stage('Push to ECR') {
       steps {
         sh '''
-          docker push "$ECR_URI:$GIT_SHA"
-          docker push "$ECR_URI:latest"
+          docker push 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
         '''
       }
     }
