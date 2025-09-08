@@ -38,11 +38,13 @@ pipeline {
       }
     }
 
-    stage('Push to ECR') {
-      steps {
-      docker push 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
-      }
-    }
+   stage('Push to ECR') {
+  steps {
+    sh '''
+      docker push "108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest"
+    '''
+  }
+}
 
     stage('Deploy on EC2') {
       steps {
