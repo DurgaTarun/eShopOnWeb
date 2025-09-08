@@ -5,7 +5,7 @@ pipeline {
     timestamps()
   }
   environment {
-    AWS_REGION   = 'ap-south-1'               // change if needed
+    AWS_REGION   = 'us-east-1'               // change if needed
     REPO_NAME    = 'eshoponweb'               // your ECR repo
     APP_NAME     = 'eshoponweb'               // container name on EC2
   }
