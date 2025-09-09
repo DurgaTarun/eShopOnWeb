@@ -1,66 +1,66 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    AWS_REGION   = 'us-east-1'
-    AWS_ACCOUNT  = '108758164602'
-    REPO_NAME    = 'eshoponweb'
-    APP_NAME     = 'eshoponweb'
-    ECR_URI      = "108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb"
-  }
-
-  options {
-    disableConcurrentBuilds()
-    timestamps()
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main', url: 'https://github.com/DurgaTarun/eShopOnWeb.git'
-      }
+    environment {
+        AWS_REGION = "us-east-1"
+        AWS_ACCOUNT_ID = "108758164602"
+        IMAGE_REPO = "eshoponweb"
+        IMAGE_TAG = "latest"
+        ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO}:${IMAGE_TAG}"
     }
 
-    stage('ECR Login') {
-  steps {
-    sh '''
-      aws ecr get-login-password --region us-east-1 \
-      | docker login --username AWS --password-stdin 108758164602.dkr.ecr.us-east-1.amazonaws.com
-    '''
-  }
-}
-  stage('Build & Tag Image') {
-  steps {
-    sh '''
-      docker build -t eshoponweb:latest .
-      docker tag eshoponweb:latest 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
-    '''
-  }
-}
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/DurgaTarun/eShopOnWeb.git'
+            }
+        }
 
-stage('Push to ECR') {
-  steps {
-    sh '''
-      docker push 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
-    '''
-  }
-}
+        stage('ECR Login') {
+            steps {
+                sh '''
+                  aws ecr get-login-password --region $AWS_REGION \
+                  | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                '''
+            }
+        }
 
-stage('Deploy on EC2') {
-  steps {
-    sh '''
-      docker pull 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
-      docker run -d -p 8080:80 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
-    '''
-  }
-}
+        stage('Build & Tag Image') {
+            steps {
+                sh '''
+                  docker build -t $IMAGE_REPO:$IMAGE_TAG .
+                  docker tag $IMAGE_REPO:$IMAGE_TAG $ECR_URL
+                '''
+            }
+        }
 
-  post {
-    success {
-      echo "✅ Deployed successfully! Access app via EC2 Public IP on port 80"
+        stage('Push to ECR') {
+            steps {
+                sh '''
+                  docker push $ECR_URL
+                '''
+            }
+        }
+
+        stage('Deploy on EC2') {
+            steps {
+                sh '''
+                  docker pull $ECR_URL
+                  docker stop eshoponweb || true
+                  docker rm eshoponweb || true
+                  docker run -d --name eshoponweb -p 8080:80 $ECR_URL
+                '''
+            }
+        }
     }
-    failure {
-      echo "❌ Build or deploy failed."
+
+    post {
+        success {
+            echo "✅ Deployment succeeded!"
+        }
+        failure {
+            echo "❌ Build or deploy failed."
+        }
     }
-  }
 }
