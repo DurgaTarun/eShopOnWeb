@@ -2,65 +2,75 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
-        AWS_ACCOUNT_ID = "108758164602"
-        IMAGE_REPO = "eshoponweb"
+        AWS_REGION = 'us-east-1'
+        ECR_REPO = '108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb'
         IMAGE_TAG = "latest"
-        ECR_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO}:${IMAGE_TAG}"
+        DOTNET_CACHE = "${HOME}/.nuget/packages"
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/DurgaTarun/eShopOnWeb.git'
+                checkout scm
             }
         }
 
         stage('ECR Login') {
             steps {
                 sh '''
-                  aws ecr get-login-password --region $AWS_REGION \
-                  | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS --password-stdin $ECR_REPO
                 '''
             }
         }
 
-        stage('Build & Tag Image') {
+        stage('Build & Tag Docker Image') {
             steps {
-                sh '''
-                  docker build -t $IMAGE_REPO:$IMAGE_TAG .
-                  docker tag $IMAGE_REPO:$IMAGE_TAG $ECR_URL
-                '''
+                script {
+                    retry(3) { // Retry up to 3 times if build fails
+                        sh """
+                        docker build \
+                            --build-arg NUGET_CACHE=$DOTNET_CACHE \
+                            -t $ECR_REPO:$IMAGE_TAG .
+                        """
+                    }
+                }
             }
         }
 
         stage('Push to ECR') {
             steps {
-                sh '''
-                  docker push $ECR_URL
-                '''
+                sh "docker push $ECR_REPO:$IMAGE_TAG"
             }
         }
 
         stage('Deploy on EC2') {
             steps {
-                sh '''
-                  docker pull $ECR_URL
-                  docker stop eshoponweb || true
-                  docker rm eshoponweb || true
-                  docker run -d --name eshoponweb -p 8080:80 $ECR_URL
-                '''
+                sshagent(['EC2_SSH_CREDENTIALS_ID']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ec2-user@your-ec2-public-ip '
+                        docker pull $ECR_REPO:$IMAGE_TAG &&
+                        docker stop eshoponweb || true &&
+                        docker rm eshoponweb || true &&
+                        docker run -d --name eshoponweb -p 80:80 $ECR_REPO:$IMAGE_TAG
+                    '
+                    """
+                }
             }
         }
     }
 
     post {
+        always {
+            echo 'Cleaning up old Docker images'
+            sh "docker system prune -f || true"
+        }
         success {
-            echo "✅ Deployment succeeded!"
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo "❌ Build or deploy failed."
+            echo 'Pipeline failed. Check logs.'
         }
     }
 }
