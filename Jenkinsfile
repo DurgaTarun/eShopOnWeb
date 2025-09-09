@@ -22,14 +22,14 @@ pipeline {
     }
 
     stage('ECR Login') {
-      steps {
-        sh '''
-        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 108758164602.dkr.ecr.us-east-1.amazonaws.com
-        '''
-      }
-    }
-
-    stage('Build & Tag Image') {
+  steps {
+    sh '''
+      aws ecr get-login-password --region us-east-1 \
+      | docker login --username AWS --password-stdin 108758164602.dkr.ecr.us-east-1.amazonaws.com
+    '''
+  }
+}
+  stage('Build & Tag Image') {
       steps {
         sh '''
           docker build -t eshoponweb .
