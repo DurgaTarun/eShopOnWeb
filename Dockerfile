@@ -1,43 +1,32 @@
-# ==========================
-# Stage 1: Build
-# ==========================
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-
-# Argument for NuGet cache
-ARG NUGET_CACHE=/root/.nuget/packages
-
-# Set workdir
 WORKDIR /src
 
-# Copy solution file first (helps cache restore)
-COPY eShopOnWeb.sln ./
+# Copy solution file first
+COPY ["eShopOnWeb.sln", "."]
 
-# Copy project files individually to leverage Docker cache
-COPY src/Web/Web.csproj src/Web/
-COPY src/ApplicationCore/ApplicationCore.csproj src/ApplicationCore/
-COPY src/Infrastructure/Infrastructure.csproj src/Infrastructure/
+# Copy all project files
+COPY ["src/Web/Web.csproj", "src/Web/"]
+COPY ["src/ApplicationCore/ApplicationCore.csproj", "src/ApplicationCore/"]
+COPY ["src/Infrastructure/Infrastructure.csproj", "src/Infrastructure/"]
+COPY ["src/BlazorAdmin/BlazorAdmin.csproj", "src/BlazorAdmin/"]
+COPY ["src/BlazorShared/BlazorShared.csproj", "src/BlazorShared/"]
 
-# Restore packages with cache
-RUN dotnet restore "src/Web/Web.csproj" --packages $NUGET_CACHE
+# Restore packages
+RUN dotnet restore "eShopOnWeb.sln" --packages /root/.nuget/packages
 
-# Copy all source code
+# Copy remaining source code
 COPY . .
 
-# Build the project
-RUN dotnet publish "src/Web/Web.csproj" -c Release -o /app/publish
+# Build
+RUN dotnet build "eShopOnWeb.sln" -c Release -o /app/build
 
-# ==========================
-# Stage 2: Runtime
-# ==========================
+# Publish
+RUN dotnet publish "eShopOnWeb.sln" -c Release -o /app/publish
+
+# Runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
-
 WORKDIR /app
-
-# Copy published output from build stage
 COPY --from=build /app/publish .
 
-# Expose port 80
-EXPOSE 80
-
-# Set entry point
 ENTRYPOINT ["dotnet", "Web.dll"]
