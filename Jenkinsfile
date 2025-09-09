@@ -30,40 +30,30 @@ pipeline {
   }
 }
   stage('Build & Tag Image') {
-      steps {
-        sh '''
-          docker build -t eshoponweb .
-          docker tag eshoponweb:latest 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest 
-        '''
-      }
-    }
-
-   stage('Push to ECR') {
   steps {
     sh '''
-      docker push "108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest"
+      docker build -t eshoponweb:latest .
+      docker tag eshoponweb:latest 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
     '''
   }
 }
 
-    stage('Deploy on EC2') {
-      steps {
-        sh '''
-          docker pull $ECR_URI:latest || true
-
-          # stop & remove old container
-          CID=$(docker ps -q --filter "name=^/${APP_NAME}$" || true)
-          if [ -n "$CID" ]; then
-            docker stop $APP_NAME || true
-            docker rm $APP_NAME || true
-          fi
-
-          # run new container
-          docker run -d --name $APP_NAME -p 80:8080 --restart=always $ECR_URI:latest
-        '''
-      }
-    }
+stage('Push to ECR') {
+  steps {
+    sh '''
+      docker push 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
+    '''
   }
+}
+
+stage('Deploy on EC2') {
+  steps {
+    sh '''
+      docker pull 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
+      docker run -d -p 8080:80 108758164602.dkr.ecr.us-east-1.amazonaws.com/eshoponweb:latest
+    '''
+  }
+}
 
   post {
     success {
